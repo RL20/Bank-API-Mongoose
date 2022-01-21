@@ -78,11 +78,15 @@ const removeUser = async (req, res) => {
 
 //? actions function---------------------------------------------------------------
 const deposit = async (req, res) => {
-  const user = getUser(req.params.id);
-  const amount = req.body.amount;
-  user.cash = user.cash + amount;
-  updateUser(req.params.id);
-  res.status(202);
+  try {
+    const user = getUser(req.params.id);
+    const amount = req.body.amount;
+    user.cash = user.cash + amount;
+    updateUser(req.params.id);
+    res.status(202);
+  } catch (e) {
+    res.status(400).send({ message: "Bad Request" });
+  }
 };
 
 // const updateCredit = (id, newCredit) => {
