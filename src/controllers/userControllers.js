@@ -105,7 +105,7 @@ const updateCredit = async (req, res) => {
   //!check if amount is number ,if not error
   try {
     const updateUser = await User.findById(id);
-    updateUser.credit += amount;
+    updateUser.credit = amount;
     const user = await User.findByIdAndUpdate(id, updateUser, {
       new: true,
       runValidators: true,
