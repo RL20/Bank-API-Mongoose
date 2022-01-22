@@ -1,3 +1,4 @@
+const { number } = require("yargs");
 const User = require("../models/user");
 
 //get all users
@@ -18,7 +19,7 @@ const getUser = async (req, res) => {
     console.log("user", user);
     if (!user) {
       console.log("userinside", user);
-      res.status(404).send(`User ${_id}  not found`);
+      return res.status(404).send(`User ${_id}  not found`);
       // throw Error({ status: 404, message: `User ${req.params.id} not found` });
     }
     res.status(200).send(user);
@@ -78,73 +79,97 @@ const removeUser = async (req, res) => {
 
 //? actions function---------------------------------------------------------------
 const deposit = async (req, res) => {
+  //postman test--> {"amount": 200}
+  const { amount } = req.body;
+  const id = req.params.id;
+  //!check if amount is number ,if not error
   try {
-    const user = getUser(req.params.id);
-    const amount = req.body.amount;
-    user.cash = user.cash + amount;
-    updateUser(req.params.id);
-    res.status(202);
-  } catch (e) {
+    const updateUser = await User.findById(id);
+    updateUser.cash += amount;
+    const user = await User.findByIdAndUpdate(id, updateUser, {
+      new: true,
+      runValidators: true,
+    });
+    if (!user) {
+      return res.status(404).send({ error: `no such ${id} to update` });
+    }
+    res.status(200).send(updateUser);
+  } catch (error) {
+    res.status(400).send({ message: "Bad Request" });
+  }
+};
+const updateCredit = async (req, res) => {
+  //postman test--> {"amount": 200}
+  const { amount } = req.body;
+  const id = req.params.id;
+  //!check if amount is number ,if not error
+  try {
+    const updateUser = await User.findById(id);
+    updateUser.credit += amount;
+    const user = await User.findByIdAndUpdate(id, updateUser, {
+      new: true,
+      runValidators: true,
+    });
+    if (!user) {
+      return res.status(404).send({ error: `no such ${id} to update` });
+    }
+    res.status(200).send(updateUser);
+  } catch (error) {
     res.status(400).send({ message: "Bad Request" });
   }
 };
 
-// const updateCredit = (id, newCredit) => {
-//   if (newCredit > 0) {
-//     const user = getUser(id);
-//     user.credit = newCredit;
-//     return updateUser(id, user);
-//   } else throw Error("Credit can not be negetive");
-// };
-// const updateCredit = async (req, res) => {
-//   const user = getUser(req.params.id);
-//   const credit = req.body.credit;
-//   updateUser(id, user);
-// };
+const withdraw = async (req, res) => {
+  const { amount } = req.body;
+  const { id } = req.params;
+  try {
+    const userWithdraw = await User.findOne({ id });
+    if (!userWithdraw) {
+      return res.status(404).send({ error: `User ${id} not found..` });
+    }
+    const withdrawMax = userWithdraw.cash + userWithdraw.credit;
+    if (amount > withdrawMax) {
+      return res.status(400).send({ message: `the maximun amount you can withdraw is ${withdrawMax}` });
+    }
+    userWithdraw.cash -= amount;
+    if (userWithdraw.cash < 0) userWithdraw.credit += userWithdraw.cash;
 
-// const withdraw = (id, amount) => {
-//   const user = getUser(id);
-//   const withdrawMax = user.cash + user.credit;
-//   if (amount <= withdrawMax) {
-//     user.cash = user.cash - amount;
-//     if (user.cash < 0) user.credit = user.credit + user.cash;
-//     return updateUser(id, user);
-//   } else throw Error(`the maximun amount you can withdraw is ${withdrawMax}`);
-// };
+    const user = await User.findByIdAndUpdate(id, userWithdraw, {
+      new: true,
+      runValidators: true,
+    });
+    res.status(200).send(user);
+  } catch (error) {
+    res.status(400).send({ message: "Bad Request" });
+  }
+};
 
-// const transfer = (depositorId, beneficiaryId, amount) => {
-//   const user = getUser(depositorId);
-//   const withdrawMax = user.cash + user.credit;
-//   const depositorCashBefore = user.cash;
-//   const depositorCreditBefore = user.credit;
-//   if (!withdraw(depositorId, amount)) {
-//     throw Error(`the maximun amount you can transfer is ${withdrawMax}`);
-//   }
+const transfer = async (req, res) => {
+  const { amount, user1, user2 } = req.body;
+  try {
+    const depositor = await User.findById(user1);
+    const beneficiary = await User.findById(user2);
 
-//   try {
-//     deposit(beneficiaryId, amount);
-//   } catch (e) {
-//     //roll back
-//     console.log(`enter deposit`);
-//     user.cash = depositorCashBefore;
-//     user.credit = depositorCreditBefore;
-//     updateUser(depositorId, user);
-//     throw Error(`we are sorry,the action was failed please try again later`);
-//   }
-//   return `transfer ${amount} to ${getUser(beneficiaryId).name} complited successfully`;
-// };
+    if (!depositor || !beneficiary) {
+      return res.status(404).send({ error: `User not found` });
+    }
+    const withdrawMax = beneficiary.cash + beneficiary.credit;
+    if (amount > withdrawMax) {
+      return res.status(400).send({ message: `the maximun amount you can withdraw is ${withdrawMax}` });
+    }
+    depositor.cash -= amount;
+    if (depositor.cash < 0) depositor.credit += depositor.cash; //minus in the account reduces the credit sice the customer use some amount from the credit
+    beneficiary.cash += amount; //update the beneficiary account
+    await depositor.save();
+    await beneficiary.save();
+    res.status(200).send(`transfer ${amount} to ${beneficiary.name} complited successfully`);
+  } catch (e) {
+    res.status(500).send(e.message);
+  }
+  //roll back
+  //   throw Error(`we are sorry,the action was failed please try again later`);
+};
 
-// module.exports = {
-//   getUsers,
-//   getUser,
-//   addUser,
-//   updateUser,
-//   removeUser,
-//   deposit,
-//   updateCredit,
-//   withdraw,
-//   transfer,
-// };
 module.exports = {
   getUsers,
   getUser,
@@ -152,4 +177,7 @@ module.exports = {
   updateUser,
   removeUser,
   deposit,
+  updateCredit,
+  withdraw,
+  transfer,
 };
