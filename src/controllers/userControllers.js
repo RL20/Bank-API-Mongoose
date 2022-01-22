@@ -123,7 +123,7 @@ const withdraw = async (req, res) => {
   const { amount } = req.body;
   const { id } = req.params;
   try {
-    const userWithdraw = await User.findOne({ id });
+    const userWithdraw = await User.findOne({ _id: id });
     if (!userWithdraw) {
       return res.status(404).send({ error: `User ${id} not found..` });
     }
