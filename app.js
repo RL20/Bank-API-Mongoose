@@ -5,14 +5,14 @@ require("./src/db/mongoose");
 const userRouter = require("./src/routers/userRouter");
 const app = express();
 app.use(express.json());
+app.use(cors());
 app.use("", userRouter); //user router
 
 const port = process.env.PORT || 9000;
 
 const publicPath = path.join(__dirname, "client/build");
-app.use(cors());
 app.use(express.static(publicPath));
-
+app.get("/users", (req, res) => {});
 app.get("*", (req, res) => {
   res.sendFile(path.resolve(publicPath, "index.html"));
 });
